@@ -232,10 +232,10 @@
   <h1>RobloxScripts - 2025</h1>
 
   <div class="nav">
-    <a href="#" onclick="showSection('home')" id="nav-home">Home</a>
-    <a href="#" onclick="showSection('gag')" id="nav-gag">Grow a Garden</a>
-    <a href="#" onclick="showSection('sab')" id="nav-sab">Steal a Brainrot</a>
-    <a href="#" onclick="showSection('bf')" id="nav-bf">Blox Fruits</a>
+    <a href="javascript:void(0)" onclick="showSection('home')" id="nav-home">Home</a>
+    <a href="javascript:void(0)" onclick="showSection('gag')" id="nav-gag">Grow a Garden</a>
+    <a href="javascript:void(0)" onclick="showSection('sab')" id="nav-sab">Steal a Brainrot</a>
+    <a href="javascript:void(0)" onclick="showSection('bf')" id="nav-bf">Blox Fruits</a>
   </div>
 
   <!-- Home Section -->
@@ -372,11 +372,11 @@
       navLinks.forEach(link => link.classList.remove('active'));
       document.getElementById(`nav-${id}`).classList.add('active');
       
-      // Update URL without page reload using hash
+      // Update URL without hash using history API
       if (id !== 'home') {
-        window.location.hash = `#${id}`;
+        window.history.replaceState({ section: id }, '', `?section=${id}`);
       } else {
-        window.location.hash = '';
+        window.history.replaceState({ section: id }, '', window.location.pathname);
       }
     }
 
@@ -402,15 +402,45 @@
         highlightScript(gameType, scriptNumber);
       }, 100);
       
-      // Update URL using hash
-      window.location.hash = `#${gameType}/script${scriptNumber}`;
+      // Update URL using query parameters
+      window.history.replaceState({ 
+        section: gameType, 
+        script: scriptNumber 
+      }, '', `?section=${gameType}&script=${scriptNumber}`);
     }
 
     function parseURL() {
+      const urlParams = new URLSearchParams(window.location.search);
       const hash = window.location.hash.slice(1); // Remove the # symbol
       
+      // Check for query parameters first
+      const sectionParam = urlParams.get('section');
+      const scriptParam = urlParams.get('script');
+      
+      if (sectionParam) {
+        // Using query parameters
+        if (!scripts[sectionParam]) {
+          showSection('home');
+          return;
+        }
+        
+        if (scriptParam) {
+          const scriptNumber = parseInt(scriptParam);
+          if (scriptNumber >= 1 && scriptNumber <= scripts[sectionParam].length) {
+            showSection(sectionParam);
+            setTimeout(() => {
+              highlightScript(sectionParam, scriptNumber);
+            }, 100);
+            return;
+          }
+        }
+        
+        showSection(sectionParam);
+        return;
+      }
+      
+      // Fall back to hash-based routing for backward compatibility
       if (!hash) {
-        // No hash - show home
         showSection('home');
         return;
       }
@@ -429,10 +459,7 @@
         // Extract script number
         const scriptNumber = parseInt(scriptPart.replace('script', ''));
         if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
-          showSection(gameType);
-          setTimeout(() => {
-            highlightScript(gameType, scriptNumber);
-          }, 100);
+          navigateToScript(gameType, scriptNumber);
           return;
         }
       }
@@ -503,8 +530,12 @@
       }).join('');
     }
 
-    // Handle hash changes (browser back/forward buttons)
+    // Handle both hash changes and popstate for backward compatibility
     window.addEventListener('hashchange', function() {
+      parseURL();
+    });
+    
+    window.addEventListener('popstate', function(event) {
       parseURL();
     });
 
