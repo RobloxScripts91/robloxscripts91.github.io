@@ -372,11 +372,11 @@
       navLinks.forEach(link => link.classList.remove('active'));
       document.getElementById(`nav-${id}`).classList.add('active');
       
-      // Update URL without page reload
+      // Update URL without page reload using hash
       if (id !== 'home') {
-        window.history.pushState({ section: id }, '', `/${id}/`);
+        window.location.hash = `#${id}`;
       } else {
-        window.history.pushState({ section: id }, '', '/');
+        window.location.hash = '';
       }
     }
 
@@ -402,25 +402,22 @@
         highlightScript(gameType, scriptNumber);
       }, 100);
       
-      // Update URL
-      window.history.pushState({ 
-        section: gameType, 
-        script: scriptNumber 
-      }, '', `/${gameType}/script${scriptNumber}`);
+      // Update URL using hash
+      window.location.hash = `#${gameType}/script${scriptNumber}`;
     }
 
     function parseURL() {
-      const path = window.location.pathname;
-      const pathParts = path.split('/').filter(part => part !== '');
+      const hash = window.location.hash.slice(1); // Remove the # symbol
       
-      if (pathParts.length === 0) {
-        // Root path - show home
+      if (!hash) {
+        // No hash - show home
         showSection('home');
         return;
       }
       
-      const gameType = pathParts[0];
-      const scriptPart = pathParts[1];
+      const hashParts = hash.split('/');
+      const gameType = hashParts[0];
+      const scriptPart = hashParts[1];
       
       // Check if it's a valid game type
       if (!scripts[gameType]) {
@@ -432,7 +429,10 @@
         // Extract script number
         const scriptNumber = parseInt(scriptPart.replace('script', ''));
         if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
-          navigateToScript(gameType, scriptNumber);
+          showSection(gameType);
+          setTimeout(() => {
+            highlightScript(gameType, scriptNumber);
+          }, 100);
           return;
         }
       }
@@ -503,17 +503,9 @@
       }).join('');
     }
 
-    // Handle browser back/forward buttons
-    window.addEventListener('popstate', function(event) {
-      if (event.state) {
-        if (event.state.script) {
-          navigateToScript(event.state.section, event.state.script);
-        } else {
-          showSection(event.state.section);
-        }
-      } else {
-        parseURL();
-      }
+    // Handle hash changes (browser back/forward buttons)
+    window.addEventListener('hashchange', function() {
+      parseURL();
     });
 
     // Initialize page
