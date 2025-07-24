@@ -372,11 +372,11 @@
       navLinks.forEach(link => link.classList.remove('active'));
       document.getElementById(`nav-${id}`).classList.add('active');
       
-      // Update URL without hash using history API
+      // Update URL with clean paths
       if (id !== 'home') {
-        window.history.replaceState({ section: id }, '', `?section=${id}`);
+        window.history.pushState({ section: id }, '', `/${id}`);
       } else {
-        window.history.replaceState({ section: id }, '', window.location.pathname);
+        window.history.pushState({ section: id }, '', '/');
       }
     }
 
@@ -402,70 +402,75 @@
         highlightScript(gameType, scriptNumber);
       }, 100);
       
-      // Update URL using query parameters
-      window.history.replaceState({ 
+      // Update URL with clean paths
+      window.history.pushState({ 
         section: gameType, 
         script: scriptNumber 
-      }, '', `?section=${gameType}&script=${scriptNumber}`);
+      }, '', `/${gameType}/script${scriptNumber}`);
     }
 
     function parseURL() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const hash = window.location.hash.slice(1); // Remove the # symbol
+      const path = window.location.pathname;
+      const pathSegments = path.split('/').filter(segment => segment !== '');
       
-      // Check for query parameters first
-      const sectionParam = urlParams.get('section');
-      const scriptParam = urlParams.get('script');
+      // Handle root path or GitHub Pages base path
+      if (pathSegments.length === 0 || (pathSegments.length === 1 && pathSegments[0] === '')) {
+        showSection('home');
+        return;
+      }
       
-      if (sectionParam) {
-        // Using query parameters
-        if (!scripts[sectionParam]) {
-          showSection('home');
-          return;
-        }
-        
-        if (scriptParam) {
-          const scriptNumber = parseInt(scriptParam);
-          if (scriptNumber >= 1 && scriptNumber <= scripts[sectionParam].length) {
-            showSection(sectionParam);
+      // Get the last segments (ignore potential GitHub Pages repo name)
+      const relevantSegments = pathSegments.slice(-2); // Get last 2 segments at most
+      const gameType = relevantSegments[0];
+      const scriptPart = relevantSegments[1];
+      
+      // If only one segment and it's a game type
+      if (relevantSegments.length === 1 && scripts[gameType]) {
+        showSection(gameType);
+        return;
+      }
+      
+      // If we have a game type, check if it's valid
+      if (scripts[gameType]) {
+        // Check for script specification
+        if (scriptPart && scriptPart.startsWith('script')) {
+          const scriptNumber = parseInt(scriptPart.replace('script', ''));
+          if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
+            showSection(gameType);
             setTimeout(() => {
-              highlightScript(sectionParam, scriptNumber);
+              highlightScript(gameType, scriptNumber);
             }, 100);
             return;
           }
         }
         
-        showSection(sectionParam);
+        // Just show the game section
+        showSection(gameType);
         return;
       }
       
-      // Fall back to hash-based routing for backward compatibility
-      if (!hash) {
-        showSection('home');
-        return;
-      }
-      
-      const hashParts = hash.split('/');
-      const gameType = hashParts[0];
-      const scriptPart = hashParts[1];
-      
-      // Check if it's a valid game type
-      if (!scripts[gameType]) {
-        showSection('home');
-        return;
-      }
-      
-      if (scriptPart && scriptPart.startsWith('script')) {
-        // Extract script number
-        const scriptNumber = parseInt(scriptPart.replace('script', ''));
-        if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
-          navigateToScript(gameType, scriptNumber);
-          return;
+      // Check if the first segment might be the game type (for GitHub Pages)
+      const firstSegment = pathSegments[0];
+      if (scripts[firstSegment]) {
+        const secondSegment = pathSegments[1];
+        
+        if (secondSegment && secondSegment.startsWith('script')) {
+          const scriptNumber = parseInt(secondSegment.replace('script', ''));
+          if (scriptNumber >= 1 && scriptNumber <= scripts[firstSegment].length) {
+            showSection(firstSegment);
+            setTimeout(() => {
+              highlightScript(firstSegment, scriptNumber);
+            }, 100);
+            return;
+          }
         }
+        
+        showSection(firstSegment);
+        return;
       }
       
-      // Just show the game section if no specific script
-      showSection(gameType);
+      // Fallback to home
+      showSection('home');
     }
 
     function copyScript(script, scriptName, number) {
@@ -530,11 +535,7 @@
       }).join('');
     }
 
-    // Handle both hash changes and popstate for backward compatibility
-    window.addEventListener('hashchange', function() {
-      parseURL();
-    });
-    
+    // Handle browser back/forward buttons
     window.addEventListener('popstate', function(event) {
       parseURL();
     });
