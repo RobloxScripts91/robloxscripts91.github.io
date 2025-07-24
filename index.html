@@ -47,6 +47,10 @@
       color: #667eea;
       background: rgba(102, 126, 234, 0.1);
     }
+    .nav a.active {
+      color: #667eea;
+      background: rgba(102, 126, 234, 0.2);
+    }
     .script-section {
       display: none;
       padding: 20px;
@@ -75,6 +79,11 @@
     .script-box:hover {
       transform: translateY(-5px);
       box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+    }
+    .script-box.highlighted {
+      border: 2px solid #667eea;
+      box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+      animation: pulse 2s infinite;
     }
     .script-box img {
       width: 100%;
@@ -187,6 +196,18 @@
       box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
     }
 
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+      }
+      50% {
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.8);
+      }
+      100% {
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+      }
+    }
+
     /* Responsive Design */
     @media (max-width: 768px) {
       .nav {
@@ -211,10 +232,10 @@
   <h1>RobloxScripts - 2025</h1>
 
   <div class="nav">
-    <a href="#" onclick="showSection('home')">Home</a>
-    <a href="#" onclick="showSection('gag')">Grow a Garden</a>
-    <a href="#" onclick="showSection('sab')">Steal a Brainrot</a>
-    <a href="#" onclick="showSection('bf')">Blox Fruits</a>
+    <a href="#" onclick="showSection('home')" id="nav-home">Home</a>
+    <a href="#" onclick="showSection('gag')" id="nav-gag">Grow a Garden</a>
+    <a href="#" onclick="showSection('sab')" id="nav-sab">Steal a Brainrot</a>
+    <a href="#" onclick="showSection('bf')" id="nav-bf">Blox Fruits</a>
   </div>
 
   <!-- Home Section -->
@@ -345,6 +366,79 @@
       const sections = document.querySelectorAll('.script-section');
       sections.forEach(section => section.classList.remove('active-section'));
       document.getElementById(id).classList.add('active-section');
+      
+      // Update navigation active state
+      const navLinks = document.querySelectorAll('.nav a');
+      navLinks.forEach(link => link.classList.remove('active'));
+      document.getElementById(`nav-${id}`).classList.add('active');
+      
+      // Update URL without page reload
+      if (id !== 'home') {
+        window.history.pushState({ section: id }, '', `/${id}/`);
+      } else {
+        window.history.pushState({ section: id }, '', '/');
+      }
+    }
+
+    function highlightScript(gameType, scriptNumber) {
+      // Remove any existing highlights
+      const highlightedBoxes = document.querySelectorAll('.script-box.highlighted');
+      highlightedBoxes.forEach(box => box.classList.remove('highlighted'));
+      
+      // Add highlight to the specific script
+      const scriptBox = document.getElementById(`${gameType}-script-${scriptNumber}`);
+      if (scriptBox) {
+        scriptBox.classList.add('highlighted');
+        // Scroll to the highlighted script
+        setTimeout(() => {
+          scriptBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    }
+
+    function navigateToScript(gameType, scriptNumber) {
+      showSection(gameType);
+      setTimeout(() => {
+        highlightScript(gameType, scriptNumber);
+      }, 100);
+      
+      // Update URL
+      window.history.pushState({ 
+        section: gameType, 
+        script: scriptNumber 
+      }, '', `/${gameType}/script${scriptNumber}`);
+    }
+
+    function parseURL() {
+      const path = window.location.pathname;
+      const pathParts = path.split('/').filter(part => part !== '');
+      
+      if (pathParts.length === 0) {
+        // Root path - show home
+        showSection('home');
+        return;
+      }
+      
+      const gameType = pathParts[0];
+      const scriptPart = pathParts[1];
+      
+      // Check if it's a valid game type
+      if (!scripts[gameType]) {
+        showSection('home');
+        return;
+      }
+      
+      if (scriptPart && scriptPart.startsWith('script')) {
+        // Extract script number
+        const scriptNumber = parseInt(scriptPart.replace('script', ''));
+        if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
+          navigateToScript(gameType, scriptNumber);
+          return;
+        }
+      }
+      
+      // Just show the game section if no specific script
+      showSection(gameType);
     }
 
     function copyScript(script, scriptName, number) {
@@ -387,7 +481,7 @@
         const gameName = gameNames[gameType];
         
         return `
-          <div class='script-box'>
+          <div class='script-box' id='${gameType}-script-${num}'>
             <div class="script-number">Script #${num}</div>
             <a href="${item.video}" target="_blank">
               <img src="images/${gameType}${num}.jpg" alt="${gameName} Script ${num}">
@@ -409,6 +503,19 @@
       }).join('');
     }
 
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', function(event) {
+      if (event.state) {
+        if (event.state.script) {
+          navigateToScript(event.state.section, event.state.script);
+        } else {
+          showSection(event.state.section);
+        }
+      } else {
+        parseURL();
+      }
+    });
+
     // Initialize page
     document.addEventListener('DOMContentLoaded', () => {
       // Generate all script sections
@@ -416,8 +523,8 @@
       document.getElementById('sabScripts').innerHTML = generateScriptBoxes(scripts.sab, 'sab');
       document.getElementById('bfScripts').innerHTML = generateScriptBoxes(scripts.bf, 'bf');
       
-      // Show home section by default
-      showSection('home');
+      // Parse URL and show appropriate section/script
+      parseURL();
     });
 
     // Add slide-in animation
@@ -435,6 +542,10 @@
       }
     `;
     document.head.appendChild(style);
+
+    // Expose functions globally for testing
+    window.navigateToScript = navigateToScript;
+    window.showSection = showSection;
   </script>
 </body>
 </html>
