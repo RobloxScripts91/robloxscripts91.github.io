@@ -413,45 +413,38 @@
       const path = window.location.pathname;
       console.log('Current path:', path); // Debug log
       
-      // Clean up the path - remove empty segments and potential repo name
+      // Clean up the path - remove empty segments
       const pathSegments = path.split('/').filter(segment => segment !== '');
       console.log('Path segments:', pathSegments); // Debug log
       
-      // Handle root path
+      // Handle root path or just domain
       if (pathSegments.length === 0) {
         showSection('home');
         return;
       }
       
-      // For GitHub Pages, we might have the repo name as first segment
-      // So we need to be flexible about which segments to use
+      // Handle different URL patterns for GitHub Pages
       let gameType, scriptPart;
       
+      // Pattern 1: /gameType (e.g., /gag)
       if (pathSegments.length === 1) {
-        // Could be just game type or repo name
         gameType = pathSegments[0];
         if (scripts[gameType]) {
           showSection(gameType);
           return;
         }
-        // If not a valid game type, default to home
         showSection('home');
         return;
       }
       
-      if (pathSegments.length >= 2) {
-        // Try last two segments first (most likely to be game/script)
-        gameType = pathSegments[pathSegments.length - 2];
-        scriptPart = pathSegments[pathSegments.length - 1];
-        
-        console.log('Trying gameType:', gameType, 'scriptPart:', scriptPart); // Debug log
+      // Pattern 2: /gameType/scriptX (e.g., /gag/script1)
+      if (pathSegments.length === 2) {
+        gameType = pathSegments[0];
+        scriptPart = pathSegments[1];
         
         if (scripts[gameType] && scriptPart.startsWith('script')) {
           const scriptNumber = parseInt(scriptPart.replace('script', ''));
-          console.log('Parsed script number:', scriptNumber); // Debug log
-          
           if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
-            console.log('Valid script found, navigating...'); // Debug log
             showSection(gameType);
             setTimeout(() => {
               highlightScript(gameType, scriptNumber);
@@ -460,10 +453,19 @@
           }
         }
         
-        // Try first two segments (in case repo name is not included)
-        if (pathSegments.length >= 2) {
-          gameType = pathSegments[0];
-          scriptPart = pathSegments[1];
+        // If just gameType is valid, show that section
+        if (scripts[gameType]) {
+          showSection(gameType);
+          return;
+        }
+      }
+      
+      // Pattern 3: For GitHub Pages with repo name - /repoName/gameType/scriptX
+      if (pathSegments.length >= 3) {
+        // Try different combinations
+        for (let i = 0; i < pathSegments.length - 1; i++) {
+          gameType = pathSegments[i];
+          scriptPart = pathSegments[i + 1];
           
           if (scripts[gameType] && scriptPart.startsWith('script')) {
             const scriptNumber = parseInt(scriptPart.replace('script', ''));
@@ -475,28 +477,12 @@
               return;
             }
           }
-          
-          // Check if first segment is just a game type
-          if (scripts[gameType]) {
-            showSection(gameType);
-            return;
-          }
         }
-      }
-      
-      // If we have 3+ segments, try different combinations
-      if (pathSegments.length >= 3) {
-        // Try segments 1 and 2 (skipping first which might be repo name)
-        gameType = pathSegments[1];
-        scriptPart = pathSegments[2];
         
-        if (scripts[gameType] && scriptPart.startsWith('script')) {
-          const scriptNumber = parseInt(scriptPart.replace('script', ''));
-          if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
-            showSection(gameType);
-            setTimeout(() => {
-              highlightScript(gameType, scriptNumber);
-            }, 100);
+        // Try just gameType without script
+        for (let i = 0; i < pathSegments.length; i++) {
+          if (scripts[pathSegments[i]]) {
+            showSection(pathSegments[i]);
             return;
           }
         }
@@ -574,12 +560,55 @@
       parseURL();
     });
 
+    // Prevent 404 errors for virtual routes by intercepting navigation
+    window.addEventListener('DOMContentLoaded', function() {
+      // Override default link behavior for script URLs
+      document.addEventListener('click', function(e) {
+        const target = e.target.closest('a');
+        if (target && target.href) {
+          const url = new URL(target.href);
+          const path = url.pathname;
+          
+          // Check if this is one of our virtual script routes
+          const pathSegments = path.split('/').filter(segment => segment !== '');
+          if (pathSegments.length >= 2) {
+            const gameType = pathSegments[pathSegments.length - 2] || pathSegments[0];
+            const scriptPart = pathSegments[pathSegments.length - 1] || pathSegments[1];
+            
+            if (scripts[gameType] && scriptPart && scriptPart.startsWith('script')) {
+              const scriptNumber = parseInt(scriptPart.replace('script', ''));
+              if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
+                e.preventDefault();
+                navigateToScript(gameType, scriptNumber);
+                return;
+              }
+            }
+            
+            // Check if it's just a game type
+            if (scripts[gameType]) {
+              e.preventDefault();
+              showSection(gameType);
+              return;
+            }
+          }
+        }
+      });
+    });
+
     // Initialize page
     document.addEventListener('DOMContentLoaded', () => {
       // Generate all script sections
       document.getElementById('gagScripts').innerHTML = generateScriptBoxes(scripts.gag, 'gag');
       document.getElementById('sabScripts').innerHTML = generateScriptBoxes(scripts.sab, 'sab');
       document.getElementById('bfScripts').innerHTML = generateScriptBoxes(scripts.bf, 'bf');
+      
+      // Handle redirects from 404.html
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get('redirect');
+      if (redirect) {
+        // Replace current URL without the redirect parameter
+        window.history.replaceState({}, '', redirect);
+      }
       
       // Parse URL and show appropriate section/script
       parseURL();
