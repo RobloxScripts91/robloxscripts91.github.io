@@ -411,29 +411,86 @@
 
     function parseURL() {
       const path = window.location.pathname;
-      const pathSegments = path.split('/').filter(segment => segment !== '');
+      console.log('Current path:', path); // Debug log
       
-      // Handle root path or GitHub Pages base path
-      if (pathSegments.length === 0 || (pathSegments.length === 1 && pathSegments[0] === '')) {
+      // Clean up the path - remove empty segments and potential repo name
+      const pathSegments = path.split('/').filter(segment => segment !== '');
+      console.log('Path segments:', pathSegments); // Debug log
+      
+      // Handle root path
+      if (pathSegments.length === 0) {
         showSection('home');
         return;
       }
       
-      // Get the last segments (ignore potential GitHub Pages repo name)
-      const relevantSegments = pathSegments.slice(-2); // Get last 2 segments at most
-      const gameType = relevantSegments[0];
-      const scriptPart = relevantSegments[1];
+      // For GitHub Pages, we might have the repo name as first segment
+      // So we need to be flexible about which segments to use
+      let gameType, scriptPart;
       
-      // If only one segment and it's a game type
-      if (relevantSegments.length === 1 && scripts[gameType]) {
-        showSection(gameType);
+      if (pathSegments.length === 1) {
+        // Could be just game type or repo name
+        gameType = pathSegments[0];
+        if (scripts[gameType]) {
+          showSection(gameType);
+          return;
+        }
+        // If not a valid game type, default to home
+        showSection('home');
         return;
       }
       
-      // If we have a game type, check if it's valid
-      if (scripts[gameType]) {
-        // Check for script specification
-        if (scriptPart && scriptPart.startsWith('script')) {
+      if (pathSegments.length >= 2) {
+        // Try last two segments first (most likely to be game/script)
+        gameType = pathSegments[pathSegments.length - 2];
+        scriptPart = pathSegments[pathSegments.length - 1];
+        
+        console.log('Trying gameType:', gameType, 'scriptPart:', scriptPart); // Debug log
+        
+        if (scripts[gameType] && scriptPart.startsWith('script')) {
+          const scriptNumber = parseInt(scriptPart.replace('script', ''));
+          console.log('Parsed script number:', scriptNumber); // Debug log
+          
+          if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
+            console.log('Valid script found, navigating...'); // Debug log
+            showSection(gameType);
+            setTimeout(() => {
+              highlightScript(gameType, scriptNumber);
+            }, 100);
+            return;
+          }
+        }
+        
+        // Try first two segments (in case repo name is not included)
+        if (pathSegments.length >= 2) {
+          gameType = pathSegments[0];
+          scriptPart = pathSegments[1];
+          
+          if (scripts[gameType] && scriptPart.startsWith('script')) {
+            const scriptNumber = parseInt(scriptPart.replace('script', ''));
+            if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
+              showSection(gameType);
+              setTimeout(() => {
+                highlightScript(gameType, scriptNumber);
+              }, 100);
+              return;
+            }
+          }
+          
+          // Check if first segment is just a game type
+          if (scripts[gameType]) {
+            showSection(gameType);
+            return;
+          }
+        }
+      }
+      
+      // If we have 3+ segments, try different combinations
+      if (pathSegments.length >= 3) {
+        // Try segments 1 and 2 (skipping first which might be repo name)
+        gameType = pathSegments[1];
+        scriptPart = pathSegments[2];
+        
+        if (scripts[gameType] && scriptPart.startsWith('script')) {
           const scriptNumber = parseInt(scriptPart.replace('script', ''));
           if (scriptNumber >= 1 && scriptNumber <= scripts[gameType].length) {
             showSection(gameType);
@@ -443,33 +500,10 @@
             return;
           }
         }
-        
-        // Just show the game section
-        showSection(gameType);
-        return;
-      }
-      
-      // Check if the first segment might be the game type (for GitHub Pages)
-      const firstSegment = pathSegments[0];
-      if (scripts[firstSegment]) {
-        const secondSegment = pathSegments[1];
-        
-        if (secondSegment && secondSegment.startsWith('script')) {
-          const scriptNumber = parseInt(secondSegment.replace('script', ''));
-          if (scriptNumber >= 1 && scriptNumber <= scripts[firstSegment].length) {
-            showSection(firstSegment);
-            setTimeout(() => {
-              highlightScript(firstSegment, scriptNumber);
-            }, 100);
-            return;
-          }
-        }
-        
-        showSection(firstSegment);
-        return;
       }
       
       // Fallback to home
+      console.log('Falling back to home'); // Debug log
       showSection('home');
     }
 
